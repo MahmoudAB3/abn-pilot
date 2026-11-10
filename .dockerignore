@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+storage
+test-results
+playwright-report
+*.tsbuildinfo
+docs/apercus
+Dockerfile
+docker-compose*.yml

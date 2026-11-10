@@ -1,0 +1,63 @@
+# ABNSoft Pilotage — déploiement mono-serveur
+#   docker compose up -d --build
+# Les secrets proviennent de .env (voir .env.example) ; rien n'est codé en dur ici.
+# Placez un reverse proxy TLS (Caddy, Nginx, Traefik) devant le port 3000.
+
+name: pilotage
+
+x-app-env: &app-env
+  env_file: .env
+  environment:
+    NODE_ENV: production
+    DATABASE_URL: postgresql://pilotage:${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}@db:5432/pilotage?schema=public
+    UPLOAD_DIR: /data/uploads
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pilotage
+      POSTGRES_USER: pilotage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pilotage -d pilotage"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build: { context: ., target: tools }
+    image: abnsoft-pilotage-tools:latest
+    <<: *app-env
+    command: ["npm", "run", "db:migrate"]
+    restart: "no"
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    build: { context: ., target: web }
+    image: abnsoft-pilotage-web:latest
+    <<: *app-env
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    image: abnsoft-pilotage-tools:latest
+    <<: *app-env
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  uploads:
