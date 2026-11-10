@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { AlertCircle, ShieldCheck } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getUserCtx } from "@/server/session";
 import { devLoginEnabled, env } from "@/server/env";
 import { signInErrorMessages } from "@/server/auth/policy";
 import { signInWithGoogle } from "@/app/actions/auth";
 import { db } from "@/server/db";
-import { PilotageMark } from "@/components/layout/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { roleLabels } from "@/lib/labels";
@@ -37,34 +36,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     : [];
 
   return (
-    <main className="grid min-h-dvh lg:grid-cols-[1fr_minmax(28rem,36rem)]">
-      <section className="relative hidden flex-col justify-between overflow-hidden bg-rail p-10 text-rail-foreground lg:flex">
-        <div className="flex items-center gap-3">
-          <PilotageMark className="size-10" />
-          <span className="flex flex-col leading-none">
-            <span className="text-[0.6875rem] font-semibold tracking-[0.14em] text-rail-muted uppercase">ABNSoft</span>
-            <span className="text-h2 font-bold">Pilotage</span>
-          </span>
-        </div>
-        <div className="max-w-md">
-          <p className="text-display font-semibold">Pilotez vos projets, de l&apos;idée à la livraison.</p>
-          <ul className="mt-6 flex flex-col gap-2 text-body text-rail-muted">
-            <li>Backlog, sprints et tableau Kanban partagés par toute l&apos;équipe.</li>
-            <li>Commits et pull requests GitHub reliés automatiquement aux tickets.</li>
-            <li>Une vision fiable de l&apos;avancement pour le Product Owner et la direction.</li>
-          </ul>
-        </div>
-        <p className="text-caption text-rail-muted">© ABN Software Synergie — application interne</p>
-      </section>
-
-      <section className="flex flex-col items-center justify-center px-6 py-12">
+    <main className="flex min-h-dvh items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <span className="rounded-lg bg-rail p-1 text-rail-foreground"><PilotageMark className="size-8" /></span>
-            <span className="text-h2 font-bold">ABNSoft Pilotage</span>
-          </div>
           <h1 className="text-h1 font-semibold">Connexion</h1>
-          <p className="mt-1 text-body text-muted-foreground">Utilisez votre compte Google Workspace professionnel.</p>
 
           {message && (
             <div role="alert" className="mt-5 flex gap-2.5 rounded-md border border-destructive/30 bg-destructive-subtle p-3 text-body-sm text-destructive-subtle-foreground">
@@ -81,11 +55,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </Button>
           </form>
           {!googleReady && <p className="mt-2 text-caption text-muted-foreground">La connexion Google n&apos;est pas encore configurée (AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET).</p>}
-
-          <p className="mt-6 flex items-start gap-2 text-caption text-muted-foreground">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-            L&apos;accès est réservé aux personnes invitées par un administrateur. Une première connexion sans invitation crée une demande d&apos;accès.
-          </p>
 
           {dev && (
             <details className="mt-8 rounded-md border border-dashed p-3" open={!googleReady}>
@@ -104,7 +73,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </details>
           )}
         </div>
-      </section>
     </main>
   );
 }
