@@ -17,6 +17,8 @@ ARG DATABASE_URL=postgresql://build:build@localhost:5432/build
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
+# Importé par prisma.config.ts (dotenv + URL directe) : requis par `prisma generate` au postinstall.
+COPY server/load-env.ts ./server/load-env.ts
 # postinstall exécute `prisma generate` (compilateur de requêtes WASM : aucun binaire natif)
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
