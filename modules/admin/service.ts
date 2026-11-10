@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { db } from "@/server/db";
-import { allowedDomains } from "@/server/env";
+import { allowedDomains, isSuperAdminEmail } from "@/server/env";
 import { assertOrg, type UserCtx } from "@/server/authz";
 import { conflict, invalid, notFound } from "@/server/errors";
 import { audit } from "@/server/audit";
@@ -74,6 +74,12 @@ async function membershipOf(ctx: UserCtx, userId: string) {
   return m;
 }
 
+/** Les super-administrateurs (SUPER_ADMIN_EMAILS) ne peuvent être ni rétrogradés ni désactivés depuis l'application. */
+async function assertNotSuperAdmin(userId: string) {
+  const u = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (isSuperAdminEmail(u?.email)) throw conflict("Ce compte est super-administrateur : il ne peut être ni rétrogradé ni désactivé.");
+}
+
 /** Empêche de retirer le dernier administrateur actif. */
 async function assertNotLastAdmin(ctx: UserCtx, userId: string) {
   const admins = await db.organizationMembership.count({ where: { orgId: ctx.orgId, role: "ADMIN", status: "ACTIVE", userId: { not: userId } } });
@@ -83,7 +89,10 @@ async function assertNotLastAdmin(ctx: UserCtx, userId: string) {
 export async function changeRole(ctx: UserCtx, input: z.infer<typeof roleSchema>) {
   assertOrg(ctx, "users.manage");
   const m = await membershipOf(ctx, input.userId);
-  if (m.role === "ADMIN" && input.role !== "ADMIN") await assertNotLastAdmin(ctx, input.userId);
+  if (m.role === "ADMIN" && input.role !== "ADMIN") {
+    await assertNotSuperAdmin(input.userId);
+    await assertNotLastAdmin(ctx, input.userId);
+  }
   await db.organizationMembership.update({ where: { id: m.id }, data: { role: input.role } });
   await audit({ orgId: ctx.orgId, actorId: ctx.userId, action: "user.role.change", targetType: "user", targetId: input.userId, data: { from: m.role, to: input.role } });
 }
@@ -92,6 +101,7 @@ export async function changeRole(ctx: UserCtx, input: z.infer<typeof roleSchema>
 export async function deactivateUser(ctx: UserCtx, userId: string) {
   assertOrg(ctx, "users.manage");
   if (userId === ctx.userId) throw conflict("Vous ne pouvez pas désactiver votre propre compte.");
+  await assertNotSuperAdmin(userId);
   const m = await membershipOf(ctx, userId);
   if (m.role === "ADMIN") await assertNotLastAdmin(ctx, userId);
   await db.$transaction([

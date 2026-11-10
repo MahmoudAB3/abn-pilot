@@ -10,7 +10,7 @@
  *  4. que le compte n'est pas désactivé.
  */
 export type SignInDecision =
-  | { allow: true; activate: boolean }
+  | { allow: true; activate: boolean; ensureAdmin?: true }
   | { allow: false; reason: "provider" | "email-non-verifie" | "domaine" | "en-attente" | "desactive" };
 
 export interface GoogleClaims {
@@ -24,12 +24,16 @@ export function evaluateSignIn(input: {
   claims: GoogleClaims | undefined;
   allowedDomains: string[];
   membership: { status: "INVITED" | "ACTIVE" | "DEACTIVATED" } | null;
+  /** Adresse listée dans SUPER_ADMIN_EMAILS : admis et (re)promu ADMIN actif, sans invitation. */
+  superAdmin?: boolean;
 }): SignInDecision {
   if (input.provider !== "google") return { allow: false, reason: "provider" };
   const c = input.claims;
   if (!c?.email || c.email_verified !== true) return { allow: false, reason: "email-non-verifie" };
   const hd = (c.hd ?? "").toLowerCase();
   if (!hd || !input.allowedDomains.includes(hd)) return { allow: false, reason: "domaine" };
+  // Toujours après les contrôles d'identité (e-mail vérifié, claim hd) : le super-admin n'en est pas exempté.
+  if (input.superAdmin) return { allow: true, activate: input.membership?.status !== "ACTIVE", ensureAdmin: true };
   if (!input.membership) return { allow: false, reason: "en-attente" };
   if (input.membership.status === "DEACTIVATED") return { allow: false, reason: "desactive" };
   return { allow: true, activate: input.membership.status === "INVITED" };

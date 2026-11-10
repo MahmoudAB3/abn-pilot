@@ -16,6 +16,11 @@ const schema = z.object({
   AUTH_GOOGLE_SECRET: z.string().optional(),
   /** Domaines Google Workspace autorisés, séparés par des virgules (claim `hd` vérifié). */
   ALLOWED_GOOGLE_DOMAINS: z.string().default(""),
+  /**
+   * Super-administrateurs, séparés par des virgules. À leur connexion Google (claims vérifiés),
+   * ils deviennent automatiquement ADMIN actifs, et aucun autre administrateur ne peut les rétrograder ni les désactiver.
+   */
+  SUPER_ADMIN_EMAILS: z.string().default("m.abdelbasset@abnsoft.ma"),
   SESSION_MAX_AGE_HOURS: z.coerce.number().int().positive().default(168),
   /** Connexion de développement sans Google (refusée en production quoi qu'il arrive). */
   AUTH_DEV_LOGIN: z.enum(["true", "false"]).default("false"),
@@ -49,6 +54,14 @@ export const allowedDomains = () =>
     .ALLOWED_GOOGLE_DOMAINS.split(",")
     .map((d) => d.trim().toLowerCase())
     .filter(Boolean);
+
+export const superAdminEmails = () =>
+  env()
+    .SUPER_ADMIN_EMAILS.split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+export const isSuperAdminEmail = (email: string | null | undefined) => Boolean(email) && superAdminEmails().includes(email!.toLowerCase());
 
 export const devLoginEnabled = () => env().NODE_ENV !== "production" && env().AUTH_DEV_LOGIN === "true";
 

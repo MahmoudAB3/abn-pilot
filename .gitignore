@@ -8,3 +8,4 @@ storage/
 test-results/
 playwright-report/
 .neon
+.env.render*

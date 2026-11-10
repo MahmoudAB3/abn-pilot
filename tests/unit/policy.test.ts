@@ -30,6 +30,16 @@ describe("politique de connexion Google", () => {
   it("rejette tout autre fournisseur", () => {
     expect(evaluateSignIn({ provider: "credentials", claims: claims(), allowedDomains: domains, membership: { status: "ACTIVE" } })).toMatchObject({ allow: false, reason: "provider" });
   });
+  it("admet un super-admin sans invitation et demande sa promotion ADMIN", () => {
+    expect(evaluateSignIn({ provider: "google", claims: claims(), allowedDomains: domains, membership: null, superAdmin: true })).toEqual({ allow: true, activate: true, ensureAdmin: true });
+  });
+  it("réactive un super-admin désactivé", () => {
+    expect(evaluateSignIn({ provider: "google", claims: claims(), allowedDomains: domains, membership: { status: "DEACTIVATED" }, superAdmin: true })).toMatchObject({ allow: true, ensureAdmin: true });
+  });
+  it("n'exempte pas le super-admin des contrôles d'identité", () => {
+    expect(evaluateSignIn({ provider: "google", claims: claims({ hd: "autre.com" }), allowedDomains: domains, membership: null, superAdmin: true })).toMatchObject({ allow: false, reason: "domaine" });
+    expect(evaluateSignIn({ provider: "google", claims: claims({ email_verified: false }), allowedDomains: domains, membership: null, superAdmin: true })).toMatchObject({ allow: false, reason: "email-non-verifie" });
+  });
   it("refuse tout si aucun domaine n'est configuré", () => {
     expect(evaluateSignIn({ provider: "google", claims: claims(), allowedDomains: [], membership: { status: "ACTIVE" } })).toMatchObject({ allow: false, reason: "domaine" });
   });

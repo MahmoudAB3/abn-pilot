@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "../db";
-import { allowedDomains, env } from "../env";
+import { allowedDomains, env, isSuperAdminEmail } from "../env";
 import { logger } from "../logger";
 import { getOrganization } from "../org";
 import { evaluateSignIn, type GoogleClaims } from "./policy";
@@ -46,7 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         const membership = user
           ? await db.organizationMembership.findUnique({ where: { orgId_userId: { orgId: org.id, userId: user.id } }, select: { status: true, id: true } })
           : null;
-        const decision = evaluateSignIn({ provider: account?.provider ?? "", claims, allowedDomains: domains, membership });
+        const decision = evaluateSignIn({ provider: account?.provider ?? "", claims, allowedDomains: domains, membership, superAdmin: isSuperAdminEmail(email) });
 
         if (!decision.allow) {
           logger.warn({ email, reason: decision.reason }, "connexion refusée");
@@ -58,6 +58,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
             });
           }
           return `/connexion?erreur=${decision.reason}`;
+        }
+        if (decision.ensureAdmin && email) {
+          // Super-admin : compte créé si besoin (l'adaptateur y liera le compte Google), appartenance ADMIN active.
+          const u = await db.user.upsert({
+            where: { email },
+            update: {},
+            create: { email, name: (profile?.name as string) ?? null, image: (profile?.picture as string) ?? null },
+          });
+          await db.organizationMembership.upsert({
+            where: { orgId_userId: { orgId: org.id, userId: u.id } },
+            update: { role: "ADMIN", status: "ACTIVE", deactivatedAt: null, ...(decision.activate ? { activatedAt: new Date() } : {}) },
+            create: { orgId: org.id, userId: u.id, role: "ADMIN", status: "ACTIVE", activatedAt: new Date() },
+          });
+          await db.accessRequest.updateMany({ where: { email, status: "PENDING" }, data: { status: "APPROVED", reviewedAt: new Date() } });
+          return true;
         }
         if (decision.activate && membership) {
           await db.organizationMembership.update({ where: { id: membership.id }, data: { status: "ACTIVE", activatedAt: new Date() } });
