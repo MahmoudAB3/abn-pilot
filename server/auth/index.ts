@@ -11,6 +11,9 @@ import { audit } from "../audit";
 export const { handlers, auth, signIn, signOut } = NextAuth(() => {
   const e = env();
   const domains = allowedDomains();
+  // Derrière un proxy (Render, Docker), l'URL de requête vue par Next.js est l'adresse d'écoute interne
+  // (ex. https://0.0.0.0:10000) : l'URI de redirection OAuth doit être construite sur l'URL publique.
+  if (!process.env.AUTH_URL && process.env.APP_URL) process.env.AUTH_URL = process.env.APP_URL;
   return {
     adapter: PrismaAdapter(db),
     secret: e.AUTH_SECRET,
